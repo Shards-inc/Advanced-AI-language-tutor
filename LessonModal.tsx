@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Lesson, Language, TranslationAnalysis, MasteryLevel } from './types';
 import { TranslationAnalysisCard } from './TranslationAnalysis';
+import PhoneticsGame from './PhoneticsGame';
+import ListeningComprehensionGame from './ListeningComprehensionGame';
 
 // --- AUDIO HELPERS ---
 function decode(base64: string) { const binaryString = atob(base64); const len = binaryString.length; const bytes = new Uint8Array(len); for (let i = 0; i < len; i++) { bytes[i] = binaryString.charCodeAt(i); } return bytes; }
@@ -525,6 +527,12 @@ const LessonModal: React.FC<LessonModalProps> = ({ lesson, onClose, onComplete, 
                 return <SentenceScrambleLesson lesson={lesson} onComplete={() => onComplete(lesson.id)} nativeLanguage={nativeLanguage} learningLanguage={learningLanguage} />;
             
             // New Mastery Hub Types
+            case 'phonetics':
+            case 'pronunciationRefinement':
+                return <PhoneticsGame lesson={lesson} onComplete={() => onComplete(lesson.id)} learningLanguage={learningLanguage} />;
+            case 'comprehensionCore':
+            case 'listeningForMeaning':
+                return <ListeningComprehensionGame lesson={lesson} onComplete={() => onComplete(lesson.id)} learningLanguage={learningLanguage} nativeLanguage={nativeLanguage} />;
             case 'highFrequencyVocab':
                 return <GridLesson title="High Frequency Words" itemType="vocab" language={learningLanguage} generateItems={generateHighFrequencyVocab} />;
             case 'conversationalPatterns':
@@ -540,7 +548,7 @@ const LessonModal: React.FC<LessonModalProps> = ({ lesson, onClose, onComplete, 
     };
 
     // Check if the lesson is interactive and requires a "Complete" button
-    const isInteractive = lesson.type === 'quiz' || lesson.type === 'sentenceScramble';
+    const isInteractive = ['quiz', 'sentenceScramble', 'phonetics', 'pronunciationRefinement', 'comprehensionCore', 'listeningForMeaning'].includes(lesson.type);
 
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>

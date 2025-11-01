@@ -4,9 +4,7 @@ import { languages } from './languages';
 import { badgeMasterList } from './achievements';
 import Sidebar from './Sidebar';
 import Chat from './Chat';
-import ImageGen from './ImageGen';
-import ImageEdit from './ImageEdit';
-import VideoGen from './VideoGen';
+import VisualStudio from './VisualStudio';
 import LiveConvo from './LiveConvo';
 import Grounding from './Grounding';
 import Analyzer from './Analyzer';
@@ -26,9 +24,7 @@ const featureComponents: { [key in FeatureId]: React.ComponentType<any> } = {
   translator: Translator,
   lessons: Lessons,
   learningHub: LearningHub,
-  imageGen: ImageGen,
-  imageEdit: ImageEdit,
-  videoGen: VideoGen,
+  visualStudio: VisualStudio,
   liveConvo: LiveConvo,
   grounding: Grounding,
   contentAnalyzer: Analyzer,

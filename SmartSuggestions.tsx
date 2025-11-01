@@ -59,7 +59,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ generateSuggestions
                         key={i}
                         onClick={() => onSuggestionClick(s)}
                         disabled={isDisabled}
-                        className="px-3 py-1 text-xs text-text-secondary bg-background-tertiary rounded-full hover:bg-background-tertiary/70 hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="px-3 py-1 text-xs text-text-primary bg-background-tertiary rounded-full hover:bg-background-tertiary/70 hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         {s}
                     </button>
@@ -69,7 +69,7 @@ const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({ generateSuggestions
                 onClick={fetchSuggestions}
                 disabled={isDisabled || isLoading}
                 className="p-1.5 bg-background-tertiary/50 rounded-full text-text-secondary hover:bg-background-tertiary hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Refresh suggestions"
+                aria-label="Refresh suggestions"
             >
                 <RefreshIcon />
             </button>

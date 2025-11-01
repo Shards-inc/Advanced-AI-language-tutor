@@ -18,6 +18,7 @@ export type TutorStyle = 'Standard' | 'Patient' | 'Concise';
 export type TtsProvider = 'Gemini' | 'ElevenLabs';
 export type SttProvider = 'Gemini' | 'Whisper' | 'Deepgram';
 export type ThinkingPreset = 'auto' | 'instant' | 'mini' | 'thinking';
+export type Emotion = 'neutral' | 'warm' | 'encouraging' | 'excited' | 'calm' | 'serious' | 'playful' | 'empathetic';
 
 export type ModelProvider = 'Auto' | 'Google' | 'OpenAI' | 'Anthropic';
 export type ModelId = 
@@ -39,9 +40,7 @@ export type FeatureId =
   | 'learningHub' // Renamed from masteryHub
   | 'liveConvo'
   | 'tts'
-  | 'imageGen'
-  | 'imageEdit'
-  | 'videoGen'
+  | 'visualStudio'
   | 'grounding'
   | 'contentAnalyzer'
   | 'settings'
@@ -217,6 +216,7 @@ export interface Source {
   title: string;
   content: string; // For text, URL summaries
   timestamp: string;
+  isLoading?: boolean;
 }
 
 export interface Notebook {
@@ -230,6 +230,12 @@ export interface Notebook {
   keyPoints?: string;
   faq?: string;
   chatHistory?: ChatMessage[];
+  deeperAnalysis?: string;
+  keyEntities?: string;
+  presentationOutline?: string;
+  socialMediaPosts?: string;
+  coverImage?: string; // base64 encoded
+  storybook?: string;
 }
 
 
