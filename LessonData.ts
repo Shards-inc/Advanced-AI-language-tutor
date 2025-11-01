@@ -79,4 +79,48 @@ export const lessonData: Unit[] = [
       { id: 'u6l4', title: 'Unit 6 Quiz', type: 'quiz', description: 'Test your travel and cultural knowledge.' },
     ],
   },
+  {
+    id: 'unit7',
+    title: 'Unit 7: Professional Life',
+    description: 'Learn vocabulary and phrases for career and the workplace.',
+    lessons: [
+      { id: 'u7l1', title: 'Jobs & Professions', type: 'phrases', description: 'Talk about what you and others do for work.' },
+      { id: 'u7l2', title: 'In the Office', type: 'nouns', description: 'Learn the names of common office items.' },
+      { id: 'u7l3', title: 'Business Talk', type: 'phrases', description: 'Practice phrases for meetings and emails.' },
+      { id: 'u7l4', title: 'Unit 7 Quiz', type: 'quiz', description: 'Test your professional vocabulary.' },
+    ],
+  },
+  {
+    id: 'unit8',
+    title: 'Unit 8: Academic World',
+    description: 'Navigate school and university settings with ease.',
+    lessons: [
+      { id: 'u8l1', title: 'School Subjects', type: 'nouns', description: 'Learn to talk about what you are studying.' },
+      { id: 'u8l2', title: 'Classroom Conversations', type: 'phrases', description: 'Phrases for interacting with teachers and classmates.' },
+      { id: 'u8l3', title: 'Studying & Learning', type: 'grammar', description: 'Discuss study habits and learning strategies.' },
+      { id: 'u8l4', title: 'Unit 8 Quiz', type: 'quiz', description: 'Test your knowledge of academic language.' },
+    ],
+  },
+  {
+    id: 'unit9',
+    title: 'Unit 9: Entertainment & Hobbies',
+    description: 'Discuss your interests in sports, movies, music, and more.',
+    lessons: [
+      { id: 'u9l1', title: 'Talking about Sports', type: 'phrases', description: 'Share your favorite sports and teams.' },
+      { id: 'u9l2', title: 'Movies & TV Shows', type: 'phrases', description: 'Discuss plots, characters, and genres.' },
+      { id: 'u9l3', title: 'Music & Art', type: 'phrases', description: 'Express your opinions on different art forms.' },
+      { id: 'u9l4', title: 'Unit 9 Quiz', type: 'quiz', description: 'Test your entertainment vocabulary.' },
+    ],
+  },
+  {
+    id: 'unit10',
+    title: 'Unit 10: Science & Technology',
+    description: 'Explore topics related to the modern world.',
+    lessons: [
+      { id: 'u10l1', title: 'The Natural World', type: 'phrases', description: 'Talk about animals, plants, and the environment.' },
+      { id: 'u10l2', title: 'Tech & Gadgets', type: 'nouns', description: 'Learn vocabulary for computers and smartphones.' },
+      { id: 'u10l3', title: 'Discussing History', type: 'grammar', description: 'Learn to talk about past events.' },
+      { id: 'u10l4', title: 'Unit 10 Quiz', type: 'quiz', description: 'Test your knowledge of science and history.' },
+    ],
+  },
 ];
