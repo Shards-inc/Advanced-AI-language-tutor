@@ -31,7 +31,9 @@ export type FeatureId =
   | 'grounding'
   | 'contentAnalyzer'
   | 'settings'
-  | 'help';
+  | 'help'
+  | 'privacyPolicy'
+  | 'profile';
 
 export interface GroundingChunk {
   web?: {
@@ -143,6 +145,42 @@ export interface UserLessonStats {
   xp: number;
   xpToNextLevel: number;
   streak: number;
+}
+
+// New types for Profile page
+export interface ProfileStats {
+  totalChats: number;
+  currentStreak: number;
+  wordsLearned: number;
+  xpPoints: number;
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string; // Emoji
+  earned: boolean;
+  earnedDate?: string;
+}
+
+export interface FriendActivity {
+  id: string;
+  friendName: string;
+  friendAvatar: string;
+  action: string;
+  timestamp: string;
+  xpGained: number;
+}
+
+export interface LeaderboardUser {
+  rank: number;
+  name: string;
+  avatar: string; // URL or emoji
+  xp: number;
+  level: number;
+  streak: number;
+  isCurrentUser?: boolean;
 }
 
 

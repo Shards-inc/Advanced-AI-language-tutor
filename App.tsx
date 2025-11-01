@@ -17,6 +17,8 @@ import Lessons from './Lessons';
 import LearningHub from './MasteryHub'; // Renamed component
 import Settings from './Settings';
 import Help from './Help';
+import PrivacyPolicy from './PrivacyPolicy';
+import Profile from './Profile';
 
 const featureComponents: { [key in FeatureId]: React.ComponentType<any> } = {
   chat: Chat,
@@ -32,6 +34,8 @@ const featureComponents: { [key in FeatureId]: React.ComponentType<any> } = {
   tts: TTS,
   settings: Settings,
   help: Help,
+  privacyPolicy: PrivacyPolicy,
+  profile: Profile,
 };
 
 const App: React.FC = () => {
