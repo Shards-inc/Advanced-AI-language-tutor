@@ -1,0 +1,370 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { Lesson, Language, TranslationAnalysis } from './types';
+import { TranslationAnalysisCard } from './TranslationAnalysis';
+
+// --- AUDIO HELPERS ---
+function decode(base64: string) { const binaryString = atob(base64); const len = binaryString.length; const bytes = new Uint8Array(len); for (let i = 0; i < len; i++) { bytes[i] = binaryString.charCodeAt(i); } return bytes; }
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> { const dataInt16 = new Int16Array(data.buffer); const frameCount = dataInt16.length / numChannels; const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate); for (let channel = 0; channel < numChannels; channel++) { const channelData = buffer.getChannelData(channel); for (let i = 0; i < frameCount; i++) { channelData[i] = dataInt16[i * numChannels + channel] / 32768.0; } } return buffer; }
+const Spinner = () => (<svg className="animate-spin h-6 w-6 text-accent-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>);
+
+// --- LESSON CONTENT COMPONENTS ---
+
+// Generic component for grid-based lessons (Alphabet, Numbers, Colors)
+const GridLesson: React.FC<{ title: string, itemType: string, language: Language, generateItems: (lang: Language) => Promise<any[]> }> = ({ title, itemType, language, generateItems }) => {
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [ttsLoading, setTtsLoading] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchItems = async () => {
+            setLoading(true);
+            const generated = await generateItems(language);
+            setItems(generated);
+            setLoading(false);
+        };
+        fetchItems();
+    }, [language, generateItems]);
+
+    const playSound = async (text: string) => {
+        setTtsLoading(text);
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash-preview-tts",
+                contents: [{ parts: [{ text: `In ${language.name}, say: ${text}` }] }],
+                config: {
+                    responseModalities: [Modality.AUDIO],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+                },
+            });
+            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (!base64Audio) throw new Error("No audio data received.");
+            const outputAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContext, 24000, 1);
+            const source = outputAudioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(outputAudioContext.destination);
+            source.start();
+        } catch (error) {
+            console.error(`Failed to play TTS for "${text}"`, error);
+        } finally {
+            setTtsLoading(null);
+        }
+    };
+
+    if (loading) return <div className="flex justify-center items-center h-48"><Spinner /></div>;
+
+    return (
+        <div>
+            <h3 className="text-xl font-bold mb-4">{title} in {language.name}</h3>
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
+                {items.map((item, index) => {
+                    const text = typeof item === 'object' ? item.name : item;
+                    const display = typeof item === 'object' ? `${item.name} (${item.value})` : item;
+                    return (
+                        <button
+                            key={index}
+                            onClick={() => playSound(text)}
+                            className="aspect-square flex items-center justify-center p-2 rounded-lg bg-background-tertiary hover:bg-accent-primary/20 transition-colors text-lg font-semibold"
+                        >
+                            {ttsLoading === text ? <Spinner /> : <span>{display}</span>}
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    );
+};
+
+
+const PhrasesLesson: React.FC<{ lesson: Lesson, nativeLanguage: Language, learningLanguage: Language }> = ({ lesson, nativeLanguage, learningLanguage }) => {
+    const [phrases, setPhrases] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeAnalysis, setActiveAnalysis] = useState<TranslationAnalysis | null>(null);
+    const [analysisLoading, setAnalysisLoading] = useState(false);
+    const [ttsLoading, setIsTtsLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchPhrases = async () => {
+            setLoading(true);
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Generate a JSON array of 5 common phrases related to "${lesson.title}" for someone learning ${learningLanguage.name}. Each object should have a "phrase" in ${learningLanguage.name} and a "translation" in ${nativeLanguage.name}.`,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                phrase: { type: Type.STRING },
+                                translation: { type: Type.STRING }
+                            }
+                        }
+                    }
+                }
+            });
+            setPhrases(JSON.parse(response.text));
+            setLoading(false);
+        };
+        fetchPhrases();
+    }, [lesson.title, learningLanguage, nativeLanguage]);
+
+    const handleDeepDive = async (phrase: string) => {
+        setAnalysisLoading(true);
+        setActiveAnalysis(null);
+        const systemInstruction = `You are a world-class AI Language Coach. The user's native language is ${nativeLanguage.name} and they are learning ${learningLanguage.name}. When given text, provide a comprehensive analysis as a JSON object. All analysis fields MUST be in ${nativeLanguage.name} to ensure the user understands. Respond ONLY with the JSON object.`;
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Please provide a deep analysis of the following phrase in ${learningLanguage.name}: "${phrase}"`,
+                config: {
+                    systemInstruction,
+                    responseMimeType: "application/json",
+                    responseSchema: { /* Re-using schema from Translator.tsx */
+                        type: Type.OBJECT,
+                        properties: {
+                            professionalTranslation: { type: Type.STRING, description: `The phrase translated to ${nativeLanguage.name}.` },
+                            translationConfidence: { type: Type.NUMBER },
+                            sound: { type: Type.OBJECT, properties: { text: { type: Type.STRING }, ipa: { type: Type.STRING }, syllables: { type: Type.STRING } }, required: ['text', 'ipa', 'syllables'], },
+                            meaning: { type: Type.STRING },
+                            structure: { type: Type.STRING },
+                            learningProcess: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            usage: { type: Type.STRING },
+                            advancedSummary: { type: Type.STRING },
+                            alternativeTranslations: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        },
+                         required: ['professionalTranslation', 'translationConfidence', 'sound', 'meaning', 'structure', 'learningProcess', 'usage', 'advancedSummary', 'alternativeTranslations'],
+                    },
+                },
+            });
+            const result = JSON.parse(response.text);
+            // The professionalTranslation field in the schema should be from the target to native language.
+            // But the model might get confused and translate the other way. Let's fix that here.
+            result.professionalTranslation = phrases.find(p => p.phrase === phrase)?.translation || result.professionalTranslation;
+            setActiveAnalysis(result);
+        } catch (err) {
+            console.error("Deep dive analysis failed:", err);
+        } finally {
+            setAnalysisLoading(false);
+        }
+    };
+    
+    const playAudio = async () => {
+        const textToSpeak = activeAnalysis?.sound.text;
+        if (!textToSpeak || analysisLoading || ttsLoading) return;
+        setIsTtsLoading(true);
+        try {
+             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash-preview-tts",
+                contents: [{ parts: [{ text: textToSpeak }] }],
+                config: {
+                    responseModalities: [Modality.AUDIO],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+                },
+            });
+            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (!base64Audio) throw new Error("No audio data received.");
+            const outputAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContext, 24000, 1);
+            const source = outputAudioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(outputAudioContext.destination);
+            source.start();
+        } catch(e) { console.error(e); } finally {
+            setIsTtsLoading(false);
+        }
+    };
+
+    if (loading) return <div className="flex justify-center items-center h-48"><Spinner /></div>;
+
+    if (activeAnalysis || analysisLoading) {
+        return (
+            <div>
+                <button onClick={() => setActiveAnalysis(null)} className="mb-4 text-sm text-accent-primary hover:underline">&larr; Back to Phrases</button>
+                {analysisLoading ? <div className="flex justify-center items-center h-48"><Spinner /></div> : 
+                 activeAnalysis && <TranslationAnalysisCard analysis={activeAnalysis} onPlayAudio={playAudio} isTtsLoading={ttsLoading} />
+                }
+            </div>
+        )
+    }
+
+    return (
+        <div className="space-y-3">
+            {phrases.map((p, i) => (
+                <div key={i} className="bg-background-tertiary p-3 rounded-lg flex justify-between items-center">
+                    <div>
+                        <p className="font-semibold text-text-primary">{p.phrase}</p>
+                        <p className="text-sm text-text-secondary">{p.translation}</p>
+                    </div>
+                    <button onClick={() => handleDeepDive(p.phrase)} className="text-sm font-semibold bg-accent-secondary/20 text-accent-secondary px-3 py-1 rounded-md hover:bg-accent-secondary/40 transition-colors">
+                        Deep Dive
+                    </button>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+
+const QuizLesson: React.FC<{ lesson: Lesson, onComplete: () => void, learningLanguage: Language, nativeLanguage: Language }> = ({ lesson, onComplete, learningLanguage, nativeLanguage }) => {
+    const [questions, setQuestions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [currentQ, setCurrentQ] = useState(0);
+    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+    const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const generateQuiz = async () => {
+            setLoading(true);
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            // For a real quiz, we'd want to make this prompt more robust, maybe based on previous lessons
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: `Generate a 4-question multiple choice quiz about basic ${learningLanguage.name} vocabulary (greetings, numbers). Provide a JSON array where each object has "question" (in ${nativeLanguage.name}), "options" (an array of 4 strings in ${learningLanguage.name}), and "answer" (the correct string from options).`,
+                config: {
+                    responseMimeType: "application/json",
+                    responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING } } } }
+                }
+            });
+            setQuestions(JSON.parse(response.text));
+            setLoading(false);
+        };
+        generateQuiz();
+    }, [learningLanguage, nativeLanguage]);
+
+    const handleAnswer = (option: string) => {
+        if (selectedAnswer) return;
+        setSelectedAnswer(option);
+        setIsCorrect(option === questions[currentQ].answer);
+    };
+
+    const handleNext = () => {
+        if (currentQ < questions.length - 1) {
+            setCurrentQ(q => q + 1);
+            setSelectedAnswer(null);
+            setIsCorrect(null);
+        } else {
+            onComplete();
+        }
+    };
+
+    if (loading) return <div className="flex justify-center items-center h-48"><Spinner /></div>;
+    if (questions.length === 0) return <div>Could not load quiz.</div>
+
+    const question = questions[currentQ];
+    return (
+        <div className="text-center">
+            <p className="text-sm text-text-secondary">Question {currentQ + 1} of {questions.length}</p>
+            <h3 className="text-2xl font-bold my-4">{question.question}</h3>
+            <div className="grid grid-cols-2 gap-4 my-8">
+                {question.options.map((opt: string, i: number) => (
+                    <button
+                        key={i}
+                        onClick={() => handleAnswer(opt)}
+                        disabled={!!selectedAnswer}
+                        className={`p-4 rounded-lg border-2 text-lg font-semibold transition-all
+                            ${selectedAnswer === null ? 'border-background-tertiary hover:border-accent-primary' : ''}
+                            ${selectedAnswer === opt && isCorrect ? 'bg-green-500/20 border-green-500 text-white' : ''}
+                            ${selectedAnswer === opt && !isCorrect ? 'bg-red-500/20 border-red-500 text-white' : ''}
+                            ${selectedAnswer !== null && opt === question.answer ? 'bg-green-500/20 border-green-500' : ''}
+                        `}
+                    >
+                        {opt}
+                    </button>
+                ))}
+            </div>
+            {selectedAnswer && (
+                <div className="h-24">
+                    <p className={`text-xl font-bold ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                        {isCorrect ? 'Correct!' : `Not quite. The answer is ${question.answer}.`}
+                    </p>
+                    <button onClick={handleNext} className="mt-4 bg-accent-primary text-background-primary font-bold py-2 px-8 rounded-lg hover:bg-accent-primary-dark">
+                        {currentQ < questions.length - 1 ? 'Next' : 'Finish'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+// --- MAIN MODAL COMPONENT ---
+
+interface LessonModalProps {
+    lesson: Lesson;
+    onClose: () => void;
+    onComplete: (lessonId: string) => void;
+    nativeLanguage: Language;
+    learningLanguage: Language;
+}
+
+const LessonModal: React.FC<LessonModalProps> = ({ lesson, onClose, onComplete, nativeLanguage, learningLanguage }) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+
+    const generateAlphabet = useCallback(async (lang: Language) => {
+        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Generate the alphabet for ${lang.name} as a JSON array of uppercase strings.`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } } } });
+        return JSON.parse(response.text);
+    }, [ai]);
+
+    const generateNumbers = useCallback(async (lang: Language) => {
+        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Generate numbers 1-10 for a learner of ${lang.name}. Provide a JSON array of objects, each with "value" (number) and "name" (string).`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { value: { type: Type.NUMBER }, name: { type: Type.STRING } } } } } });
+        return JSON.parse(response.text);
+    }, [ai]);
+
+    const generateColors = useCallback(async (lang: Language) => {
+        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: `Generate 8 basic colors (e.g., red, blue, green) for a learner of ${lang.name}. Provide a JSON array of objects, each with "value" (hex code string) and "name" (string).`, config: { responseMimeType: "application/json", responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { value: { type: Type.STRING }, name: { type: Type.STRING } } } } } });
+        return JSON.parse(response.text);
+    }, [ai]);
+
+    const renderContent = () => {
+        switch (lesson.type) {
+            case 'alphabet':
+                return <GridLesson title="Alphabet" itemType="letter" language={learningLanguage} generateItems={generateAlphabet} />;
+            case 'numbers':
+                return <GridLesson title="Numbers" itemType="number" language={learningLanguage} generateItems={generateNumbers} />;
+            case 'colors':
+                return <GridLesson title="Colors" itemType="color" language={learningLanguage} generateItems={generateColors} />;
+            case 'phrases':
+            case 'grammar':
+                return <PhrasesLesson lesson={lesson} nativeLanguage={nativeLanguage} learningLanguage={learningLanguage} />;
+            case 'quiz':
+                return <QuizLesson lesson={lesson} onComplete={() => onComplete(lesson.id)} nativeLanguage={nativeLanguage} learningLanguage={learningLanguage} />;
+            default:
+                return <div>This lesson type is not yet available.</div>;
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-background-secondary w-full max-w-4xl h-[90vh] rounded-xl border border-background-tertiary/50 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+                <header className="p-4 border-b border-background-tertiary/50 flex justify-between items-center flex-shrink-0">
+                    <div>
+                        <h2 className="font-heading text-xl font-bold">{lesson.title}</h2>
+                        <p className="text-sm text-text-secondary">{lesson.description}</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-background-tertiary transition-colors" aria-label="Close lesson">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </header>
+                <div className="flex-1 p-6 overflow-y-auto">
+                    {renderContent()}
+                </div>
+                {lesson.type !== 'quiz' && (
+                    <footer className="p-4 bg-background-tertiary/30 flex-shrink-0">
+                        <button onClick={() => onComplete(lesson.id)} className="w-full bg-accent-primary text-background-primary font-bold py-3 px-8 rounded-lg hover:bg-accent-primary-dark transition-colors">
+                            Complete Lesson
+                        </button>
+                    </footer>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default LessonModal;

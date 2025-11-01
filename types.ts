@@ -21,6 +21,7 @@ export type ConversationMode = 'Fast' | 'Smart' | 'Genius';
 export type FeatureId = 
   | 'chat'
   | 'translator'
+  | 'lessons'
   | 'liveConvo'
   | 'tts'
   | 'imageGen'
@@ -74,6 +75,26 @@ export interface TranslationAnalysis {
 export type ExperienceLevel = 'Beginner' | 'Intermediate' | 'Advanced' | 'Fluent';
 export type UserGoal = 'Travel' | 'Career' | 'School' | 'Connect' | 'Brain Training' | 'Cultural Immersion';
 export type UserInterest = 'Technology' | 'Food' | 'Art & Culture' | 'Sports' | 'Science' | 'History' | 'Movies & TV' | 'Music';
+
+
+// For the Lessons feature
+export type LessonType = 'alphabet' | 'numbers' | 'colors' | 'phrases' | 'grammar' | 'quiz';
+
+export interface Lesson {
+  id: string;
+  title: string;
+  type: LessonType;
+  description: string;
+}
+
+export interface Unit {
+  id: string;
+  title:string;
+  description: string;
+  lessons: Lesson[];
+}
+
+export type LessonStatus = 'locked' | 'active' | 'completed';
 
 
 declare global {

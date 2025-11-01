@@ -11,11 +11,13 @@ import Analyzer from './Analyzer';
 import TTS from './TTS';
 import LandingPage from './LandingPage';
 import Translator from './Translator';
+import Lessons from './Lessons';
 import { languages } from './languages';
 
 const featureComponents: { [key in FeatureId]: React.ComponentType<any> } = {
   chat: Chat,
   translator: Translator,
+  lessons: Lessons,
   imageGen: ImageGen,
   imageEdit: ImageEdit,
   videoGen: VideoGen,
